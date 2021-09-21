@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Life Streaming Radio</string>
+    <string name="channel_name">Radio Playback</string>
+    <string name="channel_description">Radio Online JKI Injil Keselamatan</string>
+    <string name="channel_description_settings">This service is used to keep the radio playing in background process</string>
+    <string name="running_text">berbagi kehidupan,\nbersama bertumbuh dewasa\ndalam kristus</string>
+</resources>

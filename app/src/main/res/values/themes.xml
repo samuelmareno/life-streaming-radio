@@ -1,0 +1,16 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Theme.RadioInjilKeselamatan" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Primary brand color. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryVariant">#4C00FF</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <!-- Secondary brand color. -->
+
+        <!-- Status bar color. -->
+        <item name="android:statusBarColor" tools:targetApi="l">@android:color/black</item>
+        <item name="android:navigationBarColor" tools:targetApi="l">@android:color/black</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <!-- Customize your theme here. -->
+    </style>
+</resources>
