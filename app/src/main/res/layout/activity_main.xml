@@ -5,7 +5,6 @@
     android:layout_height="match_parent"
     xmlns:tools="http://schemas.android.com/tools">
 
-
     <ImageView
         android:id="@+id/imageView"
         android:layout_width="0dp"

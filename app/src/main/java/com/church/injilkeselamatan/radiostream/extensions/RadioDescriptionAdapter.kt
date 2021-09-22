@@ -4,6 +4,7 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.Build
 import com.church.injilkeselamatan.radiostream.MainActivity
 import com.church.injilkeselamatan.radiostream.R
 import com.church.injilkeselamatan.radiostream.RadioService
@@ -22,7 +23,12 @@ class RadioDescriptionAdapter(
         val intent = Intent(radioService, MainActivity::class.java)
         intent.putExtra("foo_bar_extra_key", "foo_bar_extra_value")
         intent.action = System.currentTimeMillis().toString()
-        return PendingIntent.getActivity(radioService, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PendingIntent.getActivity(radioService, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+        } else {
+            PendingIntent.getActivity(radioService, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+
+        }
     }
 
     override fun getCurrentContentText(player: Player) = Constants.SUBTITLE
