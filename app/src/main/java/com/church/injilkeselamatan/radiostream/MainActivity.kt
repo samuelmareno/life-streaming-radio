@@ -71,6 +71,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onResume() {
+        super.onResume()
         appUpdateManager.appUpdateInfo
             .addOnSuccessListener {
                 if (it.updateAvailability() == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS) {
@@ -82,7 +83,6 @@ class MainActivity : AppCompatActivity() {
                     )
                 }
             }
-        super.onResume()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
