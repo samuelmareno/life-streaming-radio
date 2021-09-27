@@ -9,6 +9,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
+import com.bumptech.glide.Glide
 import com.church.injilkeselamatan.radiostream.databinding.ActivityMainBinding
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.play.core.appupdate.AppUpdateManager
@@ -21,7 +22,7 @@ import com.google.android.play.core.install.model.UpdateAvailability
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private lateinit var appUpdateManager: FakeAppUpdateManager
+    private lateinit var appUpdateManager: AppUpdateManager
 
     companion object {
         private const val UPDATE_CODE = 999
@@ -32,7 +33,7 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        appUpdateManager = FakeAppUpdateManager(this)
+        appUpdateManager = AppUpdateManagerFactory.create(applicationContext)
         val appUpdateInfoTask = appUpdateManager.appUpdateInfo
         appUpdateInfoTask.addOnSuccessListener {
             if (it.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE &&
@@ -47,6 +48,10 @@ class MainActivity : AppCompatActivity() {
                 //TODO: do something in here if update not available
             }
         }
+
+        Glide.with(applicationContext)
+            .load(R.drawable.lifers2)
+            .into(binding.imageView)
 
         binding.imageView.setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.lifers2))
 
