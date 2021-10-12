@@ -47,9 +47,11 @@ dependencies {
     implementation 'com.google.android.material:material:1.4.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.0'
 
-    implementation 'com.google.android.exoplayer:exoplayer:2.15.0'
-    implementation 'com.google.android.exoplayer:extension-mediasession:2.15.0'
-    implementation 'com.google.android.exoplayer:exoplayer-hls:2.15.0'
+    def exo_version = "2.15.0"
+    implementation "com.google.android.exoplayer:exoplayer:$exo_version"
+    implementation "com.google.android.exoplayer:extension-mediasession:$exo_version"
+    implementation "com.google.android.exoplayer:exoplayer-hls:$exo_version"
+
     implementation 'com.github.bumptech.glide:glide:4.12.0'
 
     implementation "com.google.dagger:hilt-android:$hilt_version"

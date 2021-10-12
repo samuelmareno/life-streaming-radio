@@ -8,7 +8,6 @@ import android.support.v4.media.MediaDescriptionCompat
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import com.church.injilkeselamatan.radiostream.R
-import com.google.android.exoplayer2.ControlDispatcher
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.ext.mediasession.TimelineQueueNavigator
 
@@ -18,7 +17,11 @@ class TimelineQueueNavigator(
 ) : TimelineQueueNavigator(mediaSession) {
 
     override fun getMediaDescription(player: Player, windowIndex: Int): MediaDescriptionCompat {
-        val bitmap = BitmapFactory.decodeResource(context.resources, R.drawable.notif)
+        val bitmap = try {
+            BitmapFactory.decodeResource(context.resources, R.drawable.notif)
+        } catch (e: Exception) {
+            null
+        }
         val bundle = Bundle()
         bundle.putString(MediaMetadataCompat.METADATA_KEY_TITLE, Constants.TITLE)
         bundle.putString(MediaMetadataCompat.METADATA_KEY_ARTIST, Constants.SUBTITLE)
