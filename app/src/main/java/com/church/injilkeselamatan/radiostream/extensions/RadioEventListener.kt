@@ -2,32 +2,49 @@ package com.church.injilkeselamatan.radiostream.extensions
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.Service
 import android.content.Context
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.widget.Toast
+import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import com.church.injilkeselamatan.radiostream.R
-import com.church.injilkeselamatan.radiostream.RadioService
 import com.church.injilkeselamatan.radiostream.extensions.Constants.CHANNEL_ERROR_ID
 import com.church.injilkeselamatan.radiostream.extensions.Constants.CHANNEL_NAME
 import com.church.injilkeselamatan.radiostream.extensions.Constants.NOTIFICATION_ERROR_ID
-import com.google.android.exoplayer2.PlaybackException
-import com.google.android.exoplayer2.Player
 
+@OptIn(UnstableApi::class)
 class RadioEventListener(
-    private val radioService: RadioService
+    private val radioService: Service,
+    val isServiceInForeground: Boolean,
+    val playRadio: () -> Unit,
+    val setForegroundService: (Boolean) -> Unit
 ) : Player.Listener {
+
+    companion object {
+        private const val TAG = "RadioEventListener"
+    }
+
     private val context = radioService.applicationContext
 
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+        Log.d(TAG, "onPlayWhenReadyChanged: playWhenReady=$playWhenReady, reason=$reason")
         radioService.apply {
             if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST && isServiceInForeground) {
-                stopForeground(false)
-                isServiceInForeground = false
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    stopForeground(Service.STOP_FOREGROUND_DETACH)
+                } else {
+                    @Suppress("DEPRECATION")
+                    stopForeground(false)
+                }
+                setForegroundService(false)
             }
             if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_REMOTE) {
                 //radioService.playRadio()
@@ -36,7 +53,7 @@ class RadioEventListener(
                 }
             }
             if (playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST) {
-                radioService.playRadio()
+                playRadio()
             }
         }
     }
@@ -46,16 +63,20 @@ class RadioEventListener(
             Player.STATE_BUFFERING -> {
                 showBufferingNotification()
             }
+
             Player.STATE_READY -> {
                 NotificationManagerCompat.from(context).cancel(
                     NOTIFICATION_ERROR_ID
                 )
 
             }
+
             Player.STATE_ENDED -> {
-                radioService.playRadio()
+                playRadio()
             }
-            else -> Unit
+
+
+            else -> Log.d(TAG, "onPlaybackStateChanged: $state")
         }
     }
 
@@ -85,6 +106,15 @@ class RadioEventListener(
             val notificationManager: NotificationManager =
                 radioService.applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    context,
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                return
+            }
         }
 
         NotificationManagerCompat.from(context).notify(

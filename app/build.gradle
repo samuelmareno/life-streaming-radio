@@ -1,20 +1,20 @@
 plugins {
     id 'com.android.application'
-    id 'kotlin-android'
+    id 'org.jetbrains.kotlin.android'
     id 'kotlin-kapt'
-    id 'dagger.hilt.android.plugin'
+    id 'com.google.dagger.hilt.android'
 }
 
 android {
-    compileSdkVersion 31
-    buildToolsVersion "30.0.3"
+    namespace 'com.church.injilkeselamatan.radiostream'
+    compileSdk 36
 
     defaultConfig {
         applicationId "com.church.injilkeselamatan.radiostream"
-        minSdkVersion 21
-        targetSdkVersion 31
-        versionCode 7
-        versionName "1.0.3"
+        minSdk 21
+        targetSdk 36
+        versionCode 8
+        versionName "2.0.0"
         buildConfigField("String", "RADIO_URL", RADIO_URL)
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -23,15 +23,16 @@ android {
     buildTypes {
         release {
             minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = '17'
     }
 
     buildFeatures {
@@ -41,29 +42,29 @@ android {
 
 dependencies {
 
-    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
-    implementation 'androidx.core:core-ktx:1.6.0'
-    implementation 'androidx.appcompat:appcompat:1.3.1'
-    implementation 'com.google.android.material:material:1.4.0'
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.0'
+    implementation 'androidx.core:core-ktx:1.16.0'
+    implementation 'androidx.appcompat:appcompat:1.7.1'
+    implementation 'com.google.android.material:material:1.12.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.2.1'
 
-    def exo_version = "2.15.0"
-    implementation "com.google.android.exoplayer:exoplayer:$exo_version"
+    def exo_version = "2.19.1"
     implementation "com.google.android.exoplayer:extension-mediasession:$exo_version"
-    implementation "com.google.android.exoplayer:exoplayer-hls:$exo_version"
 
-    implementation 'com.github.bumptech.glide:glide:4.12.0'
+    implementation "androidx.media3:media3-exoplayer-hls:1.7.1"
+    implementation 'androidx.media3:media3-exoplayer:1.7.1'
+    implementation 'androidx.media3:media3-ui:1.7.1'
+    implementation 'androidx.media3:media3-session:1.7.1'
 
+    implementation 'com.github.bumptech.glide:glide:4.16.0'
+    implementation "com.google.dagger:hilt-android:2.56.2"
+
+// Hilt
     implementation "com.google.dagger:hilt-android:$hilt_version"
     kapt "com.google.dagger:hilt-android-compiler:$hilt_version"
-
-    def hilt_jetpack_version = "1.0.0-alpha03"
-    implementation "androidx.hilt:hilt-lifecycle-viewmodel:$hilt_jetpack_version"
-    kapt "androidx.hilt:hilt-compiler:$hilt_jetpack_version"
-    kaptAndroidTest "androidx.hilt:hilt-compiler:$hilt_jetpack_version"
-
+    implementation 'androidx.hilt:hilt-navigation-compose:1.2.0'
     // In-app update support
-    implementation 'com.google.android.play:core:1.10.1'
+    implementation 'com.google.android.play:app-update:2.1.0'
+    implementation 'com.google.android.play:app-update-ktx:2.1.0'
 
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'
