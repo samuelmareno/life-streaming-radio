@@ -86,7 +86,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        connectToMediaSession()
     }
 
     override fun onResume() {
@@ -194,6 +193,7 @@ class MainActivity : AppCompatActivity() {
                     Manifest.permission.POST_NOTIFICATIONS
                 ) == PackageManager.PERMISSION_GRANTED -> {
                     createNotificationChannel()
+                    connectToMediaSession()
                 }
 
                 shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) -> {
@@ -229,6 +229,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showPermissionDeniedDialog() {
         AlertDialog.Builder(this)
+            .setCancelable(false)
             .setTitle("Izin Diperlukan")
             .setMessage("Aplikasi ini memerlukan izin notifikasi untuk kontrol media. Izinkan di pengaturan.")
             .setPositiveButton("Buka Pengaturan") { _, _ ->
@@ -237,7 +238,6 @@ class MainActivity : AppCompatActivity() {
                 }
                 startActivity(intent)
             }
-            .setNegativeButton("Batal") { dialog, _ -> dialog.dismiss() }
             .show()
     }
 }
