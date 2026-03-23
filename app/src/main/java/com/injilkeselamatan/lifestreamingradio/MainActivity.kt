@@ -1,4 +1,4 @@
-package com.church.injilkeselamatan.radiostream
+package com.injilkeselamatan.lifestreamingradio
 
 import android.Manifest
 import android.app.NotificationChannel
@@ -22,21 +22,19 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.bumptech.glide.Glide
-import com.church.injilkeselamatan.radiostream.databinding.ActivityMainBinding
-import com.church.injilkeselamatan.radiostream.extensions.Constants
 import com.google.android.play.core.appupdate.AppUpdateManager
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory
 import com.google.android.play.core.install.model.AppUpdateType
 import com.google.android.play.core.install.model.UpdateAvailability
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
-import dagger.hilt.android.AndroidEntryPoint
+import com.injilkeselamatan.lifestreamingradio.databinding.ActivityMainBinding
+import com.injilkeselamatan.lifestreamingradio.extensions.Constants
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-@AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
@@ -204,13 +202,21 @@ class MainActivity : AppCompatActivity() {
                     requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
             }
+        } else {
+            createNotificationChannel()
+            connectToMediaSession()
         }
     }
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
-        if (isGranted) createNotificationChannel() else showPermissionDeniedDialog()
+        if (isGranted) {
+            createNotificationChannel()
+            connectToMediaSession()
+        } else {
+            showPermissionDeniedDialog()
+        }
     }
 
     private fun createNotificationChannel() {

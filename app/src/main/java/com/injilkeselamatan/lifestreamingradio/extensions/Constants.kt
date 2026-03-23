@@ -1,4 +1,4 @@
-package com.church.injilkeselamatan.radiostream.extensions
+package com.injilkeselamatan.lifestreamingradio.extensions
 
 object Constants {
     const val TITLE = "Life Streaming Radio"

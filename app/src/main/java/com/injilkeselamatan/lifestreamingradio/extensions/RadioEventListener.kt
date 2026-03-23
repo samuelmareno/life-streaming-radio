@@ -1,9 +1,11 @@
-package com.church.injilkeselamatan.radiostream.extensions
+package com.injilkeselamatan.lifestreamingradio.extensions
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -15,10 +17,10 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import com.church.injilkeselamatan.radiostream.R
-import com.church.injilkeselamatan.radiostream.extensions.Constants.CHANNEL_ERROR_ID
-import com.church.injilkeselamatan.radiostream.extensions.Constants.CHANNEL_NAME
-import com.church.injilkeselamatan.radiostream.extensions.Constants.NOTIFICATION_ERROR_ID
+import com.injilkeselamatan.lifestreamingradio.R
+import com.injilkeselamatan.lifestreamingradio.extensions.Constants.CHANNEL_ERROR_ID
+import com.injilkeselamatan.lifestreamingradio.extensions.Constants.CHANNEL_NAME
+import com.injilkeselamatan.lifestreamingradio.extensions.Constants.NOTIFICATION_ERROR_ID
 
 @OptIn(UnstableApi::class)
 class RadioEventListener(
@@ -110,8 +112,8 @@ class RadioEventListener(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(
                     context,
-                    android.Manifest.permission.POST_NOTIFICATIONS
-                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
             ) {
                 return
             }

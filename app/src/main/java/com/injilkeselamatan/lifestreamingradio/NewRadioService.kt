@@ -1,4 +1,4 @@
-package com.church.injilkeselamatan.radiostream
+package com.injilkeselamatan.lifestreamingradio
 
 import android.Manifest
 import android.app.NotificationChannel
@@ -28,24 +28,21 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
-import com.church.injilkeselamatan.radiostream.extensions.Constants
-import com.church.injilkeselamatan.radiostream.extensions.Constants.CHANNEL_ID
-import com.church.injilkeselamatan.radiostream.extensions.RadioEventListener
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
-import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
+import com.injilkeselamatan.lifestreamingradio.extensions.Constants
+import com.injilkeselamatan.lifestreamingradio.extensions.Constants.CHANNEL_ID
+import com.injilkeselamatan.lifestreamingradio.extensions.RadioEventListener
 
 @OptIn(UnstableApi::class)
-@AndroidEntryPoint
 class NewRadioService : MediaSessionService() {
 
     companion object {
         private const val CUSTOM_COMMAND_STOP = "com.church.injilkeselamatan.radiostream.STOP"
     }
 
-    @Inject
-    lateinit var exoPlayer: ExoPlayer
+
+    private lateinit var exoPlayer: ExoPlayer
 
     private lateinit var mediaSession: MediaSession
     private lateinit var forwardingPlayer: ForwardingPlayer
@@ -63,11 +60,14 @@ class NewRadioService : MediaSessionService() {
             .setUsage(C.USAGE_MEDIA)
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
             .build()
+        exoPlayer = ExoPlayer.Builder(this)
+            .setAudioAttributes(audioAttributes, true)
+            .build()
         exoPlayer.setAudioAttributes(audioAttributes, true)
 
         // 2. Konfigurasi Notifikasi
         notificationProvider = DefaultMediaNotificationProvider.Builder(this)
-            .setChannelId(Constants.CHANNEL_ID)
+            .setChannelId(CHANNEL_ID)
             .setChannelName(R.string.channel_name)
             .setNotificationId(Constants.NOTIFICATION_ID)
             .build()
@@ -223,7 +223,7 @@ class NewRadioService : MediaSessionService() {
             val notificationManagerCompat = NotificationManagerCompat.from(this@NewRadioService)
             ensureNotificationChannel(notificationManagerCompat)
             val builder =
-                NotificationCompat.Builder(this@NewRadioService, Constants.CHANNEL_ID)
+                NotificationCompat.Builder(this@NewRadioService, CHANNEL_ID)
                     .setSmallIcon(R.drawable.media3_notification_small_icon)
                     .setContentTitle(Constants.TITLE)
                     .setStyle(
@@ -238,7 +238,7 @@ class NewRadioService : MediaSessionService() {
     private fun ensureNotificationChannel(notificationManagerCompat: NotificationManagerCompat) {
         if (
             Build.VERSION.SDK_INT < 26 ||
-            notificationManagerCompat.getNotificationChannel(Constants.CHANNEL_ID) != null
+            notificationManagerCompat.getNotificationChannel(CHANNEL_ID) != null
         ) {
             return
         }
