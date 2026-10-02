@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<!--
+  Receiver Google Cast untuk Life Streaming Radio.
+  Diputar di TV (Chromecast / Google TV) saat pengguna melakukan cast dari aplikasi
+  Android atau iOS. Pratinjau di browser biasa: buka dengan ?preview
+-->
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <title>Life Streaming Radio</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="receiver.css">
+  <script src="https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
+</head>
+<body>
+  <!-- UI sendiri, bukan UI bawaan receiver Google: audio diputar lewat elemen ini. -->
+  <audio id="player"></audio>
+
+  <main class="screen">
+    <img class="artwork" src="artwork.png" alt="Life Streaming Radio">
+    <section class="info">
+      <p class="status" id="status" hidden></p>
+      <h1 class="title" id="title">Life Streaming Radio</h1>
+      <p class="artist" id="artist">House of Life</p>
+      <p class="playback" id="playback"></p>
+      <p class="tagline">Berbagi kehidupan,<br>bersama bertumbuh dewasa<br>dalam Kristus</p>
+    </section>
+  </main>
+
+  <script type="module" src="receiver.js"></script>
+</body>
+</html>
