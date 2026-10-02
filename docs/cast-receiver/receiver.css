@@ -83,6 +83,17 @@ body {
   color: var(--purple);
 }
 
+/* Berkedip selama buffering, supaya dari jauh pun terlihat siaran sedang dimuat. */
+.playback.blinking {
+  animation: blink 1s ease-in-out infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.2;
+  }
+}
+
 .tagline {
   margin: 0;
   font-size: 3vh;

@@ -27,8 +27,9 @@ function renderStationStatus(isOnline) {
   ui.status.classList.toggle('offline', !isOnline);
 }
 
-function renderPlayback(text) {
+function renderPlayback(text, blinking = false) {
   ui.playback.textContent = text;
+  ui.playback.classList.toggle('blinking', blinking);
 }
 
 function songTextOf(data) {
@@ -89,9 +90,12 @@ function startReceiver() {
   });
 
   const playbackLabels = {};
-  playbackLabels[messages.PlayerState.BUFFERING] = 'Memuat…';
+  playbackLabels[messages.PlayerState.BUFFERING] = 'Buffering…';
   playbackLabels[messages.PlayerState.PAUSED] = 'Dijeda';
-  const updatePlayback = () => renderPlayback(playbackLabels[playerManager.getPlayerState()] || '');
+  const updatePlayback = () => {
+    const state = playerManager.getPlayerState();
+    renderPlayback(playbackLabels[state] || '', state === messages.PlayerState.BUFFERING);
+  };
   [
     events.EventType.PLAYER_LOAD_COMPLETE,
     events.EventType.PLAYING,
