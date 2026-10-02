@@ -1,3 +1,4 @@
+import { createSpectrum } from './spectrum.js';
 import { nowPlayingFrom } from './track.js';
 
 // Sama dengan aplikasi: NOWPLAYING_URL (Android, gradle.properties) & Constants.nowPlayingURL (iOS).
@@ -6,12 +7,17 @@ const POLL_INTERVAL_MS = 15000;
 const STATION = Object.freeze({ title: 'Life Streaming Radio', artist: 'House of Life' });
 /** Gambar untuk notifikasi & lock screen HP; harus URL publik, bukan file di dalam aplikasi. */
 const LOGO_URL = new URL('logo.png', location.href).href;
+// Sama dengan RADIO_URL (Android) & Constants.radioURL (iOS). Hanya untuk pratinjau: di TV,
+// alamat stream datang dari HP lewat permintaan LOAD.
+const PREVIEW_STREAM_URL = 'https://a2.siar.us/listen/life_radio/radio.mp3';
 
 const ui = {
   status: document.getElementById('status'),
   title: document.getElementById('title'),
   artist: document.getElementById('artist'),
   playback: document.getElementById('playback'),
+  player: document.getElementById('player'),
+  spectrum: document.getElementById('spectrum'),
 };
 
 let current = { title: STATION.title, artist: STATION.artist };
@@ -67,7 +73,8 @@ function startReceiver() {
   const context = cast.framework.CastReceiverContext.getInstance();
   const playerManager = context.getPlayerManager();
 
-  playerManager.setMediaElement(document.getElementById('player'));
+  playerManager.setMediaElement(ui.player);
+  const spectrum = createSpectrum(ui.spectrum, ui.player);
 
   const withNowPlaying = (metadata) => {
     const music =
@@ -82,12 +89,16 @@ function startReceiver() {
 
   // Apa pun yang dikirim HP, siaran diperlakukan sebagai live (tanpa seek bar) dan langsung
   // memakai judul terbaru serta logo.
-  playerManager.setMessageInterceptor(messages.MessageType.LOAD, (request) => {
+  playerManager.setMessageInterceptor(messages.MessageType.LOAD, async (request) => {
     request.media.streamType = messages.StreamType.LIVE;
     request.media.contentType = request.media.contentType || 'audio/mpeg';
     request.media.metadata = withNowPlaying(request.media.metadata);
+    // Sebelum CAF memasang src stream: spektrum butuh crossOrigin, yang hanya boleh dipasang
+    // kalau server mengizinkan.
+    await spectrum.prepare(request.media.contentUrl || request.media.contentId);
     return request;
   });
+  playerManager.addEventListener(events.EventType.PLAYING, () => spectrum.resume());
 
   const playbackLabels = {};
   playbackLabels[messages.PlayerState.BUFFERING] = 'Buffering…';
@@ -119,9 +130,17 @@ function startReceiver() {
 }
 
 if (new URLSearchParams(location.search).has('preview')) {
-  // Di browser biasa: tampilkan UI dengan data live, tanpa framework Cast.
-  renderPlayback('Pratinjau');
+  // Di browser biasa: tampilkan UI dengan data live, tanpa framework Cast. Browser hanya boleh
+  // memutar suara setelah ada klik, jadi stream (dan spektrumnya) baru jalan setelah diklik.
+  const spectrum = createSpectrum(ui.spectrum, ui.player);
+  renderPlayback('Pratinjau: klik untuk memutar');
   startPolling(() => {});
+  document.addEventListener('click', async () => {
+    await spectrum.prepare(PREVIEW_STREAM_URL);
+    ui.player.src = PREVIEW_STREAM_URL;
+    await ui.player.play();
+    renderPlayback('Pratinjau');
+  }, { once: true });
 } else {
   startReceiver();
 }

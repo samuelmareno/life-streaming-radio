@@ -77,10 +77,22 @@ body {
 }
 
 .playback {
-  margin: 0 0 4vh;
+  margin: 0 0 2vh;
   min-height: 3.2vh;
   font-size: 2.6vh;
   color: var(--purple);
+}
+
+/* Spektrum suara (spectrum.js), simetris seperti ikon mikrofon di logo. */
+.spectrum {
+  display: block;
+  width: 80%;
+  height: 12vh;
+  margin: 0 auto 4vh;
+}
+
+.spectrum[hidden] {
+  display: none;
 }
 
 /* Berkedip selama buffering, supaya dari jauh pun terlihat siaran sedang dimuat. */
