@@ -33,6 +33,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.injilkeselamatan.lifestreamingradio.extensions.Constants
 import com.injilkeselamatan.lifestreamingradio.extensions.Constants.CHANNEL_ID
 import com.injilkeselamatan.lifestreamingradio.extensions.RadioEventListener
+import com.injilkeselamatan.lifestreamingradio.extensions.parseIcyTrack
 
 @OptIn(UnstableApi::class)
 class NewRadioService : MediaSessionService() {
@@ -90,7 +91,15 @@ class NewRadioService : MediaSessionService() {
         // 5. Siapkan Media dan Mulai Bermain
         setupMediaAndPlay()
         setMediaNotificationProvider(notificationProvider)
-        forwardingPlayer = ForwardingPlayer(exoPlayer)
+        // Metadata ICY datang sebagai satu baris "Artis - Judul" di field title.
+        // Pemecahannya dilakukan di sini saja, lalu MediaSession (dan karenanya
+        // notifikasi maupun MediaController di MainActivity) membaca hasil yang
+        // sudah rapi dari player ini. Dengan begitu tidak ada dua tempat yang
+        // menafsirkan metadata secara berbeda.
+        forwardingPlayer = object : ForwardingPlayer(exoPlayer) {
+            override fun getMediaMetadata(): MediaMetadata =
+                splitTrackMetadata(super.getMediaMetadata())
+        }
         val stopCustomCommand = CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setSessionCommand(SessionCommand(CUSTOM_COMMAND_STOP, Bundle.EMPTY))
             .setDisplayName("Stop Radio")
@@ -111,24 +120,27 @@ class NewRadioService : MediaSessionService() {
         mediaSession = MediaSession.Builder(this, forwardingPlayer)
             .setId("InjilKeselamatan_RadioSession")
             .setSessionActivity(sessionActivity)
-            .setCustomLayout(mutableListOf(stopCustomCommand))
+            .setCustomLayout(listOf(stopCustomCommand))
             .setCallback(object : MediaSession.Callback {
 
                 override fun onConnect(
                     session: MediaSession,
                     controller: MediaSession.ControllerInfo
                 ): MediaSession.ConnectionResult {
-                    val connectionResult = super.onConnect(session, controller)
-                    val availableSessionCommands =
-                        connectionResult.availableSessionCommands.buildUpon()
+                    // JANGAN membangun izin di atas super.onConnect(): sejak Media3
+                    // 1.11.0 implementasi default hanya memberi akses baca, sehingga
+                    // hasilnya kosong. Controller notifikasi jadi tidak punya command,
+                    // notifikasi media tidak terbentuk, dan foreground service tidak
+                    // pernah menyala. Berikan set command default secara eksplisit.
+                    val sessionCommands =
+                        MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
+                            .add(stopCustomCommand.sessionCommand!!)
+                            .build()
 
-                    /* Registering custom player command buttons for player notification. */
-                    availableSessionCommands.add(stopCustomCommand.sessionCommand!!)
-
-                    return MediaSession.ConnectionResult.accept(
-                        availableSessionCommands.build(),
-                        connectionResult.availablePlayerCommands
-                    )
+                    return MediaSession.ConnectionResult
+                        .AcceptedResultBuilder(session, controller)
+                        .setAvailableSessionCommands(sessionCommands)
+                        .build()
                 }
 
                 override fun onCustomCommand(
@@ -162,6 +174,19 @@ class NewRadioService : MediaSessionService() {
         return START_STICKY
     }
 
+    /**
+     * Memecah metadata ICY "Artis - Judul" menjadi field yang benar.
+     * Kalau formatnya tidak sesuai dugaan, metadata dikembalikan apa adanya
+     * supaya judul mentah tetap tampil ketimbang hilang.
+     */
+    private fun splitTrackMetadata(source: MediaMetadata): MediaMetadata {
+        val track = parseIcyTrack(source.title?.toString()) ?: return source
+        return source.buildUpon()
+            .setTitle(track.title)
+            .setArtist(track.artist)
+            .build()
+    }
+
     private fun setupMediaAndPlay() {
         // Buat metadata untuk ditampilkan di notifikasi dan UI lainnya
         val artworkUri = "android.resource://${packageName}/${R.drawable.notif}".toUri()
@@ -184,7 +209,7 @@ class NewRadioService : MediaSessionService() {
 
         exoPlayer.setMediaSource(hlsSource)
         exoPlayer.prepare()
-        exoPlayer.play() // Memulai pemutaran
+        exoPlayer.play()
     }
 
     // Dipanggil saat service akan dihancurkan
@@ -224,7 +249,7 @@ class NewRadioService : MediaSessionService() {
             ensureNotificationChannel(notificationManagerCompat)
             val builder =
                 NotificationCompat.Builder(this@NewRadioService, CHANNEL_ID)
-                    .setSmallIcon(R.drawable.media3_notification_small_icon)
+                    .setSmallIcon(androidx.media3.session.R.drawable.media3_notification_small_icon)
                     .setContentTitle(Constants.TITLE)
                     .setStyle(
                         NotificationCompat.BigTextStyle().bigText(Constants.TITLE)

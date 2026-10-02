@@ -18,18 +18,22 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.bumptech.glide.Glide
+import com.google.android.play.core.appupdate.AppUpdateInfo
 import com.google.android.play.core.appupdate.AppUpdateManager
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory
+import com.google.android.play.core.appupdate.AppUpdateOptions
 import com.google.android.play.core.install.model.AppUpdateType
 import com.google.android.play.core.install.model.UpdateAvailability
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import com.injilkeselamatan.lifestreamingradio.databinding.ActivityMainBinding
 import com.injilkeselamatan.lifestreamingradio.extensions.Constants
+import com.injilkeselamatan.lifestreamingradio.extensions.parseIcyTrack
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -42,13 +46,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mediaControllerFuture: ListenableFuture<MediaController>
     private var mediaController: MediaController? = null
 
-    companion object {
-        private const val UPDATE_CODE = 999
-    }
-
     private val listener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             updatePlayPauseUI(isPlaying)
+        }
+
+        override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
+            updateNowPlaying(mediaMetadata)
         }
     }
 
@@ -104,6 +108,7 @@ class MainActivity : AppCompatActivity() {
                 mediaController = mediaControllerFuture.get()
                 mediaController?.addListener(listener)
                 updatePlayPauseUI(mediaController?.isPlaying == true)
+                mediaController?.mediaMetadata?.let { updateNowPlaying(it) }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -127,6 +132,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupUI() {
+        binding.tvTitle.isSelected = true
         Glide.with(this).load(R.drawable.lifers2).into(binding.imageView)
 
         binding.exoPlay.setOnClickListener {
@@ -154,18 +160,32 @@ class MainActivity : AppCompatActivity() {
         binding.exoPause.visibility = if (isPlaying) View.VISIBLE else View.GONE
     }
 
+    private fun updateNowPlaying(metadata: MediaMetadata) {
+        // Notifikasi dibangun dari player.getMediaMetadata() yang sudah dirapikan
+        // NewRadioService, tapi MediaController menerima objek metadata MENTAH
+        // lewat callback ForwardingPlayer. Supaya kedua tampilan tidak pernah
+        // berbeda lagi, keduanya memakai fungsi penguraian yang sama.
+        //
+        // Kalau judulnya sudah terpecah (tidak mengandung " - "), parseIcyTrack
+        // mengembalikan null dan field bawaan dipakai apa adanya — jadi ini tetap
+        // benar seandainya nanti Media3 mengirim metadata yang sudah rapi.
+        val track = parseIcyTrack(metadata.title?.toString())
+
+        binding.tvTitle.text = track?.title
+            ?: metadata.title?.toString()?.takeIf { it.isNotBlank() }
+            ?: Constants.TITLE
+        binding.tvArtist.text = track?.artist
+            ?: metadata.artist?.toString()?.takeIf { it.isNotBlank() }
+            ?: Constants.SUBTITLE
+    }
+
     private fun setupUpdateManager() {
         appUpdateManager = AppUpdateManagerFactory.create(applicationContext)
         appUpdateManager.appUpdateInfo.addOnSuccessListener {
             if (it.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE &&
                 it.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE)
             ) {
-                appUpdateManager.startUpdateFlowForResult(
-                    it,
-                    AppUpdateType.IMMEDIATE,
-                    this,
-                    UPDATE_CODE
-                )
+                startImmediateUpdate(it)
             }
         }
     }
@@ -173,14 +193,21 @@ class MainActivity : AppCompatActivity() {
     private fun checkInProgressUpdate() {
         appUpdateManager.appUpdateInfo.addOnSuccessListener {
             if (it.updateAvailability() == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS) {
-                appUpdateManager.startUpdateFlowForResult(
-                    it,
-                    AppUpdateType.IMMEDIATE,
-                    this,
-                    UPDATE_CODE
-                )
+                startImmediateUpdate(it)
             }
         }
+    }
+
+    private val updateFlowLauncher = registerForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { /* Pengguna membatalkan atau update gagal; alur dicoba lagi di onResume(). */ }
+
+    private fun startImmediateUpdate(info: AppUpdateInfo) {
+        appUpdateManager.startUpdateFlowForResult(
+            info,
+            updateFlowLauncher,
+            AppUpdateOptions.newBuilder(AppUpdateType.IMMEDIATE).build()
+        )
     }
 
     private fun askNotificationPermission() {

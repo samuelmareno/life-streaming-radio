@@ -37,10 +37,17 @@ This is a single-module Gradle project (`app/`) using **Kotlin**, **View Binding
 
 - The radio stream URL is set in `gradle.properties` as `RADIO_URL` and exposed via `BuildConfig.RADIO_URL`.
 - Package: `com.injilkeselamatan.lifestreamingradio` (recently migrated from `com.church.injilkeselamatan.radiostream`).
-- Min SDK 21, Target SDK 36, Java 17, Kotlin 2.1.0.
+- Min SDK 23, compile/target SDK 37 (Android 17), Java 17.
+- Toolchain: AGP 9.4.0 + Gradle 9.7.1. AGP 9 provides **built-in Kotlin** — the `org.jetbrains.kotlin.android` plugin must NOT be applied. The Kotlin version (2.4.10) is raised above AGP's bundled KGP by the `kotlin-gradle-plugin` classpath entry in the root `build.gradle`.
+- Repositories are declared centrally in `settings.gradle` (`dependencyResolutionManagement`, `FAIL_ON_PROJECT_REPOS`) — do not add `repositories {}` to module build files.
+- `android.nonTransitiveRClass=true`, so library resources need a fully-qualified R class (e.g. `androidx.media3.session.R.drawable.…`).
+- 16 KB page size (required by Play for Android 15+): `packaging.jniLibs.useLegacyPackaging = false`. The app ships no native libraries of its own, so compliance depends only on dependencies staying `.so`-free. Verify with `zipalign -c -P 16 -v 4 <apk>`.
 
 ### Media3 / ExoPlayer notes
 
 - Uses `ProgressiveMediaSource` with `DefaultHttpDataSource` for the radio stream.
 - The `MediaItem` is configured as a live stream (hides seek bar).
-- Still has a legacy dependency on `com.google.android.exoplayer:extension-mediasession` alongside the newer `androidx.media3` libraries.
+- Only `media3-exoplayer` and `media3-session` are needed; there is no `PlayerView` (so no `media3-ui`) and no HLS source (so no `media3-exoplayer-hls`).
+- **Never build `onConnect` permissions on top of `super.onConnect()`.** Since Media3 1.11.0 the default `MediaSession.Callback.onConnect` grants read-only access, so it returns an empty command set — including for the internal media-notification controller. Deriving from it silently kills the media notification and, with it, the foreground service (playback keeps running with no FGS and no controls). Grant commands explicitly via `ConnectionResult.AcceptedResultBuilder(session, controller)` + `DEFAULT_SESSION_COMMANDS` (the single-argument constructor is deprecated in 1.11.0).
+- **ICY metadata (`"Artis - Judul"`) is parsed in exactly one place:** `parseIcyTrack()` in `extensions/TrackMetadata.kt`, covered by unit tests. The service applies it via a `ForwardingPlayer.getMediaMetadata()` override so the notification gets clean fields. Caveat: that override reaches the *notification* (built from `player.getMediaMetadata()`) but **not** `MediaController`, which receives the raw metadata object through the ForwardingPlayer listener callback — so `MainActivity` calls the same `parseIcyTrack()` too. Never write a second, separate parser; that is what made the activity and the notification disagree.
+- Regression check after any media3 bump: with the app playing, `adb shell dumpsys activity services <pkg>` must show `isForeground=true` and `types=0x00000002` (mediaPlayback). Absence of the `isForeground` line means the FGS is gone — `startForegroundCount` alone does NOT prove it.
