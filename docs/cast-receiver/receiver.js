@@ -5,7 +5,7 @@ import { nowPlayingFrom } from './track.js';
 const NOWPLAYING_URL = 'https://a2.siar.us/api/nowplaying_static/life_radio.json';
 const POLL_INTERVAL_MS = 15000;
 const STATION = Object.freeze({ title: 'Life Streaming Radio', artist: 'House of Life' });
-/** Gambar untuk notifikasi & lock screen HP; harus URL publik, bukan file di dalam aplikasi. */
+/** Gambar di metadata media (Google Home, kontrol Cast di HP lain); harus URL publik. */
 const LOGO_URL = new URL('logo.png', location.href).href;
 // Sama dengan RADIO_URL (Android) & Constants.radioURL (iOS). Hanya untuk pratinjau: di TV,
 // alamat stream datang dari HP lewat permintaan LOAD.
@@ -43,8 +43,8 @@ function songTextOf(data) {
   return song ? song.text : null;
 }
 
-/** Membaca status stasiun; judul baru diteruskan ke onNowPlaying hanya kalau berubah. */
-async function pollStation(onNowPlaying) {
+/** Membaca status stasiun dan lagu yang sedang diputar untuk layar ini. */
+async function pollStation() {
   try {
     const response = await fetch(NOWPLAYING_URL, { cache: 'no-store' });
     if (!response.ok) return;
@@ -54,7 +54,6 @@ async function pollStation(onNowPlaying) {
     if (next.title !== current.title || next.artist !== current.artist) {
       current = next;
       renderNowPlaying(current);
-      onNowPlaying(current);
     }
   } catch (error) {
     // API tidak terjangkau: biarkan tampilan terakhir, coba lagi di putaran berikutnya.
@@ -62,9 +61,9 @@ async function pollStation(onNowPlaying) {
   }
 }
 
-function startPolling(onNowPlaying) {
-  pollStation(onNowPlaying);
-  setInterval(() => pollStation(onNowPlaying), POLL_INTERVAL_MS);
+function startPolling() {
+  pollStation();
+  setInterval(pollStation, POLL_INTERVAL_MS);
 }
 
 function startReceiver() {
@@ -76,23 +75,25 @@ function startReceiver() {
   playerManager.setMediaElement(ui.player);
   const spectrum = createSpectrum(ui.spectrum, ui.player);
 
-  const withNowPlaying = (metadata) => {
+  // Metadata media selalu nama stasiun: itulah yang tampil di kartu screensaver Google TV,
+  // Google Home, dan kontrol Cast di HP lain. Judul lagu hanya di layar ini dan di aplikasi
+  // (yang membaca API stasiun sendiri).
+  const withStationMetadata = (metadata) => {
     const music =
       metadata && metadata.metadataType === messages.MetadataType.MUSIC_TRACK
         ? metadata
         : new messages.MusicTrackMediaMetadata();
-    music.title = current.title;
-    music.artist = current.artist;
+    music.title = STATION.title;
+    music.artist = STATION.artist;
     music.images = [new messages.Image(LOGO_URL)];
     return music;
   };
 
-  // Apa pun yang dikirim HP, siaran diperlakukan sebagai live (tanpa seek bar) dan langsung
-  // memakai judul terbaru serta logo.
+  // Apa pun yang dikirim HP, siaran diperlakukan sebagai live (tanpa seek bar).
   playerManager.setMessageInterceptor(messages.MessageType.LOAD, async (request) => {
     request.media.streamType = messages.StreamType.LIVE;
     request.media.contentType = request.media.contentType || 'audio/mpeg';
-    request.media.metadata = withNowPlaying(request.media.metadata);
+    request.media.metadata = withStationMetadata(request.media.metadata);
     // Sebelum CAF memasang src stream: spektrum butuh crossOrigin, yang hanya boleh dipasang
     // kalau server mengizinkan.
     await spectrum.prepare(request.media.contentUrl || request.media.contentId);
@@ -118,13 +119,7 @@ function startReceiver() {
     renderPlayback('Siaran tidak dapat diputar'),
   );
 
-  // Judul baru diteruskan ke semua HP yang terhubung, jadi notifikasi & lock screen ikut update.
-  startPolling(() => {
-    const info = playerManager.getMediaInformation();
-    if (!info) return;
-    info.metadata = withNowPlaying(info.metadata);
-    playerManager.setMediaInformation(info, /* broadcast= */ true);
-  });
+  startPolling();
 
   context.start({ statusText: STATION.title });
 }
@@ -134,7 +129,7 @@ if (new URLSearchParams(location.search).has('preview')) {
   // memutar suara setelah ada klik, jadi stream (dan spektrumnya) baru jalan setelah diklik.
   const spectrum = createSpectrum(ui.spectrum, ui.player);
   renderPlayback('Pratinjau: klik untuk memutar');
-  startPolling(() => {});
+  startPolling();
   document.addEventListener('click', async () => {
     await spectrum.prepare(PREVIEW_STREAM_URL);
     ui.player.src = PREVIEW_STREAM_URL;

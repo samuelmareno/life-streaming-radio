@@ -85,7 +85,9 @@ body {
 
 /* Spektrum suara (spectrum.js), simetris seperti ikon mikrofon di logo. */
 .spectrum {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   width: 80%;
   height: 12vh;
   margin: 0 auto 4vh;
@@ -93,6 +95,19 @@ body {
 
 .spectrum[hidden] {
   display: none;
+}
+
+/* Hanya transform yang berubah, dan transisinya dijalankan compositor: tetap mulus walau
+   JavaScript di TV lambat. Durasi sedikit di atas UPDATE_INTERVAL_MS di spectrum.js. */
+.spectrum-bar {
+  flex: 0 0 auto;
+  width: 2%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(#c4b5fd, #7640f6 50%, #c4b5fd);
+  transform: scaleY(0.08);
+  transition: transform 80ms linear;
+  will-change: transform;
 }
 
 /* Berkedip selama buffering, supaya dari jauh pun terlihat siaran sedang dimuat. */

@@ -2,6 +2,11 @@
  * Spektrum suara di layar TV: batang-batang yang bergerak mengikuti audio siaran, simetris
  * kiri-kanan dengan nada rendah di tengah, senada dengan ikon mikrofon di logo.
  *
+ * Supaya mulus di TV yang lambat, batang tidak digambar ulang tiap frame: tiap batang adalah
+ * elemen sendiri dan yang berubah hanya transform scaleY. JavaScript memperbarui tingginya
+ * ~30× per detik, dan transisi CSS (dijalankan compositor/GPU, bukan JavaScript) menghaluskan
+ * gerakan di antaranya.
+ *
  * Audio dianalisis lewat Web Audio dari elemen <audio> yang diputar CAF. Server stream harus
  * mengizinkan halaman ini lewat header CORS (AzuraCast memantulkan Origin); tanpa itu Web Audio
  * hanya menerima sunyi, dan memasang crossOrigin malah membuat stream gagal dimuat. Karena itu
@@ -13,9 +18,13 @@ const BANDS = 18;
 const MIN_HZ = 60;
 const MAX_HZ = 10000;
 /** Khotbah dan lagu lemah di nada tinggi; dinaikkan sedikit supaya batang di tepi tidak diam. */
-const HIGH_BAND_BOOST = 0.6;
-/** Batang naik seketika, turun perlahan (porsi selisih per frame). */
-const RELEASE = 0.18;
+const HIGH_BAND_BOOST = 0.8;
+/** Selang pembaruan tinggi batang. Sinkron dengan `transition` .spectrum-bar di receiver.css. */
+const UPDATE_INTERVAL_MS = 33;
+/** Batang naik seketika dan turun dengan konstanta waktu ini (detik), berapa pun frame rate-nya. */
+const RELEASE_SECONDS = 0.12;
+/** Tinggi minimum (bagian dari tinggi penuh): saat sunyi batang tampil sebagai titik. */
+const MIN_LEVEL = 0.08;
 
 /**
  * Rentang bin FFT [start, end) untuk tiap band, berjarak logaritmik seperti pendengaran.
@@ -62,64 +71,49 @@ export async function probeCors(url, timeoutMs = 3000) {
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Menggambar spektrum di canvas. Sebelum audio tersambung tampil sebagai deretan titik.
+ * Membuat batang-batang spektrum di dalam container. Sebelum audio tersambung tampil sebagai
+ * deretan titik.
  *
- * @param {HTMLCanvasElement} canvas
+ * @param {HTMLElement} container
  * @param {HTMLMediaElement} mediaElement elemen yang dipakai CAF (setMediaElement).
  */
-export function createSpectrum(canvas, mediaElement) {
-  const graphics = canvas.getContext('2d');
+export function createSpectrum(container, mediaElement) {
+  // Batang kiri dan kanan untuk band yang sama: nada rendah di tengah, makin tinggi makin ke tepi.
+  const bars = Array.from({ length: BANDS * 2 }, () => {
+    const bar = document.createElement('span');
+    bar.className = 'spectrum-bar';
+    container.appendChild(bar);
+    return bar;
+  });
+  const barPairs = Array.from({ length: BANDS }, (_, band) => [bars[BANDS - 1 - band], bars[BANDS + band]]);
   const levels = new Float32Array(BANDS);
   let audioContext = null;
   let analyser = null;
   let frequencyData = null;
   let ranges = [];
   let preparing = null;
+  let lastUpdate = 0;
 
-  function resize() {
-    const ratio = window.devicePixelRatio || 1;
-    canvas.width = Math.round(canvas.clientWidth * ratio);
-    canvas.height = Math.round(canvas.clientHeight * ratio);
-  }
-
-  function bar(x, y, width, height) {
-    graphics.beginPath();
-    if (graphics.roundRect) {
-      graphics.roundRect(x, y, width, height, width / 2);
-    } else {
-      graphics.rect(x, y, width, height);
-    }
-    graphics.fill();
-  }
-
-  function paint() {
-    const { width, height } = canvas;
-    graphics.clearRect(0, 0, width, height);
-    const total = BANDS * 2;
-    const gap = (width / total) * 0.4;
-    const barWidth = (width - gap * (total - 1)) / total;
-    // Ujung batang lebih terang, tengah ungu aplikasi.
-    const gradient = graphics.createLinearGradient(0, 0, 0, height);
-    gradient.addColorStop(0, '#c4b5fd');
-    gradient.addColorStop(0.5, '#7640f6');
-    gradient.addColorStop(1, '#c4b5fd');
-    graphics.fillStyle = gradient;
-    for (let slot = 0; slot < total; slot += 1) {
-      // Nada rendah di tengah, makin tinggi makin ke tepi.
-      const band = slot < BANDS ? BANDS - 1 - slot : slot - BANDS;
-      const barHeight = Math.max(barWidth, levels[band] * height);
-      bar(slot * (barWidth + gap), (height - barHeight) / 2, barWidth, barHeight);
+  function render() {
+    for (let band = 0; band < BANDS; band += 1) {
+      const transform = `scaleY(${Math.max(MIN_LEVEL, levels[band]).toFixed(3)})`;
+      barPairs[band][0].style.transform = transform;
+      barPairs[band][1].style.transform = transform;
     }
   }
 
-  function frame() {
+  function frame(now) {
+    requestAnimationFrame(frame);
+    const elapsed = now - lastUpdate;
+    if (elapsed < UPDATE_INTERVAL_MS) return;
+    lastUpdate = now;
+    const release = 1 - Math.exp(-Math.min(elapsed, 250) / 1000 / RELEASE_SECONDS);
     analyser.getByteFrequencyData(frequencyData);
     for (let i = 0; i < BANDS; i += 1) {
       const target = bandLevel(frequencyData, ranges[i], i);
-      levels[i] = target > levels[i] ? target : levels[i] + (target - levels[i]) * RELEASE;
+      levels[i] = target > levels[i] ? target : levels[i] + (target - levels[i]) * release;
     }
-    paint();
-    requestAnimationFrame(frame);
+    render();
   }
 
   async function connect(url) {
@@ -138,8 +132,9 @@ export function createSpectrum(canvas, mediaElement) {
     audioContext = context;
     analyser = context.createAnalyser();
     analyser.fftSize = 2048;
-    analyser.smoothingTimeConstant = 0.7;
-    analyser.minDecibels = -85;
+    // Penghalusan utama dilakukan di sini (RELEASE_SECONDS) dan oleh transisi CSS.
+    analyser.smoothingTimeConstant = 0.5;
+    analyser.minDecibels = -95;
     analyser.maxDecibels = -25;
     context.createMediaElementSource(mediaElement).connect(analyser);
     analyser.connect(context.destination);
@@ -149,12 +144,7 @@ export function createSpectrum(canvas, mediaElement) {
     return true;
   }
 
-  resize();
-  paint();
-  window.addEventListener('resize', () => {
-    resize();
-    paint();
-  });
+  render();
 
   return {
     /**
@@ -164,7 +154,7 @@ export function createSpectrum(canvas, mediaElement) {
     prepare(url) {
       if (!preparing) {
         preparing = connect(url).then((connected) => {
-          canvas.hidden = !connected;
+          container.hidden = !connected;
           return connected;
         });
       }
