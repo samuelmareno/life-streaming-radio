@@ -38,7 +38,7 @@ This is a single-module Gradle project (`app/`) using **Kotlin**, **View Binding
 
 ### Configuration
 
-- `gradle.properties` → `BuildConfig`: `RADIO_URL` (AzuraCast canonical `/listen/life_radio/radio.mp3`; do not use the port-based `/radio/8430/` path), `NOWPLAYING_URL` (`/api/nowplaying_static/life_radio.json`), `CAST_RECEIVER_APP_ID` (`CC1AD845` = Google's Default Media Receiver until the custom receiver's App ID is registered; must match the iOS app).
+- `gradle.properties` → `BuildConfig`: `RADIO_URL` (AzuraCast canonical `/listen/life_radio/radio.mp3`; do not use the port-based `/radio/8430/` path), `NOWPLAYING_URL` (`/api/nowplaying_static/life_radio.json`), `CAST_RECEIVER_APP_ID` (`87CED758` = the custom receiver in `docs/cast-receiver`, registered in the Google Cast SDK Developer Console; `CC1AD845` is Google's Default Media Receiver; must match the iOS app).
 - Package: `com.injilkeselamatan.lifestreamingradio` (recently migrated from `com.church.injilkeselamatan.radiostream`).
 - Min SDK 23, compile/target SDK 37 (Android 17), Java 17.
 - Toolchain: AGP 9.4.1 + Gradle 9.8.0. AGP 9 provides **built-in Kotlin** — the `org.jetbrains.kotlin.android` plugin must NOT be applied. The Kotlin version (2.4.20) is raised above AGP's bundled KGP by the `kotlin-gradle-plugin` classpath entry in the root `build.gradle`. The Gradle 11 deprecation warning about `Configuration.setVisible` comes from AGP itself, not from our scripts.
@@ -70,3 +70,4 @@ This is a single-module Gradle project (`app/`) using **Kotlin**, **View Binding
 - `MyApplication` calls `Cast.getSingletonInstance(this).initialize(CastParams…)` — don't use the old manifest `OPTIONS_PROVIDER_CLASS_NAME` path (it enables the Cast SDK's own media session, which conflicts with Media3).
 - While casting, the receiver plays the stream itself, so the phone gets no ICY; `NewRadioService` polls `NOWPLAYING_URL` every 15 s and feeds `RadioSessionPlayer.setRemoteSongText`. The custom receiver also broadcasts the title via `setMediaInformation`.
 - Google's Default Media Receiver can only show the metadata sent at load time (no live titles, no bundled images, and it displays its own name) — that is why `docs/cast-receiver` exists.
+- The receiver is served at `https://samuelmareno.github.io/life-streaming-radio/cast-receiver/` (GitHub Pages, `/docs` of the branch selected under Settings → Pages), and App ID `87CED758` in the Cast console points at that URL. A push to that branch changes the receiver for every user at once, with no app release. Before deleting or renaming the Pages branch (e.g. after merging into `main`), switch Pages to the new branch, otherwise casting breaks for everyone.
