@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bottom sheet tombol Cast saat belum casting: daftar TV/speaker (CastChooserSheetFragment). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingBottom="16dp">
+
+    <include layout="@layout/view_sheet_handle" />
+
+    <TextView
+        android:id="@+id/title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="24dp"
+        android:paddingTop="4dp"
+        android:accessibilityHeading="true"
+        android:fontFamily="@font/archivo"
+        android:text="@string/cast_sheet_title"
+        android:textColor="@android:color/white"
+        android:textSize="20sp"
+        tools:targetApi="p" />
+
+    <com.google.android.material.progressindicator.LinearProgressIndicator
+        android:id="@+id/search_progress"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="24dp"
+        android:layout_marginTop="16dp"
+        android:indeterminate="true"
+        app:indicatorColor="@color/colorPrimary"
+        app:trackColor="@color/cast_sheet_outline"
+        app:trackCornerRadius="2dp" />
+
+    <TextView
+        android:id="@+id/search_message"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="24dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="8dp"
+        android:textColor="@color/cast_sheet_secondary_text"
+        android:textSize="14sp"
+        tools:text="@string/cast_sheet_searching" />
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:id="@+id/device_list"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingTop="8dp" />
+
+    </androidx.core.widget.NestedScrollView>
+
+</LinearLayout>

@@ -15,4 +15,12 @@
     <string name="cd_pause">Jeda radio</string>
     <string name="cd_cast">Putar di perangkat lain</string>
     <string name="cd_sleep_timer">Sleep timer</string>
+    <string name="cast_sheet_title">Putar di TV atau speaker</string>
+    <string name="cast_sheet_searching">Mencari perangkat…</string>
+    <string name="cast_sheet_searching_hint">Mencari perangkat… Pastikan TV atau speaker terhubung ke Wi-Fi yang sama dengan HP ini.</string>
+    <string name="cast_sheet_no_devices">Tidak ada TV atau speaker yang ditemukan. Pastikan perangkatnya menyala dan terhubung ke Wi-Fi yang sama dengan HP ini.</string>
+    <string name="cast_sheet_connecting">Menghubungkan…</string>
+    <string name="cast_sheet_playing_here">Radio sedang diputar di sini</string>
+    <string name="cast_sheet_volume">Volume</string>
+    <string name="cast_sheet_stop">Hentikan casting</string>
 </resources>

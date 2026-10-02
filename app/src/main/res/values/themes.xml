@@ -13,4 +13,30 @@
         <item name="android:windowBackground">@android:color/transparent</item>
         <!-- Customize your theme here. -->
     </style>
+
+    <!-- Bottom sheet tombol Cast (CastSheets.kt): gelap seperti layar utama, sampai ke bawah navbar. -->
+    <style name="ThemeOverlay.LifeRadio.CastSheet" parent="ThemeOverlay.MaterialComponents.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/Widget.LifeRadio.CastSheet</item>
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorSurface">@color/cast_sheet_background</item>
+        <item name="colorOnSurface">@android:color/white</item>
+        <item name="colorControlHighlight">#33FFFFFF</item>
+        <item name="enableEdgeToEdge">true</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">false</item>
+    </style>
+
+    <style name="Widget.LifeRadio.CastSheet" parent="Widget.MaterialComponents.BottomSheet.Modal">
+        <item name="backgroundTint">@color/cast_sheet_background</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearanceOverlay.LifeRadio.CastSheet</item>
+        <item name="paddingBottomSystemWindowInsets">true</item>
+    </style>
+
+    <style name="ShapeAppearanceOverlay.LifeRadio.CastSheet" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSizeTopLeft">24dp</item>
+        <item name="cornerSizeTopRight">24dp</item>
+        <item name="cornerSizeBottomLeft">0dp</item>
+        <item name="cornerSizeBottomRight">0dp</item>
+    </style>
 </resources>

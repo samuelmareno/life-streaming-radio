@@ -242,6 +242,8 @@ class MainActivity : AppCompatActivity() {
             castButton.isVisible = false
             return
         }
+        // Sampai Android 16 tombol Cast membuka bottom sheet sendiri (CastSheets.kt).
+        castButton.dialogFactory = CastSheetDialogFactory()
         Futures.addCallback(setup, object : FutureCallback<Void?> {
             override fun onSuccess(result: Void?) = Unit
 

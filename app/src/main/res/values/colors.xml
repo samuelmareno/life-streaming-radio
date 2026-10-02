@@ -7,4 +7,9 @@
     <color name="textPopupEditTextColor">#03DAC5</color>
     <color name="status_on_air">#4ADE80</color>
     <color name="status_offline">#9CA3AF</color>
+    <!-- Bottom sheet Cast: selalu gelap seperti layar utama, apa pun tema sistemnya. -->
+    <color name="cast_sheet_background">#18181B</color>
+    <color name="cast_sheet_secondary_text">#A1A1AA</color>
+    <color name="cast_sheet_outline">#3F3F46</color>
+    <color name="cast_sheet_halo">#337640F6</color>
 </resources>
