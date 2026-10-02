@@ -1,3 +1,4 @@
+import { createScreenKeeper } from './screen.js';
 import { createSpectrum } from './spectrum.js';
 import { nowPlayingFrom } from './track.js';
 
@@ -110,9 +111,16 @@ function startReceiver() {
   const playbackLabels = {};
   playbackLabels[messages.PlayerState.BUFFERING] = 'Buffering…';
   playbackLabels[messages.PlayerState.PAUSED] = 'Dijeda';
+  // Selama radio diputar layar ini tetap tampil (bukan screensaver Google TV); lihat screen.js.
+  const screenKeeper = createScreenKeeper();
   const updatePlayback = () => {
     const state = playerManager.getPlayerState();
     renderPlayback(playbackLabels[state] || '', state === messages.PlayerState.BUFFERING);
+    if (state === messages.PlayerState.PLAYING || state === messages.PlayerState.BUFFERING) {
+      screenKeeper.keepOn();
+    } else {
+      screenKeeper.allowOff();
+    }
   };
   [
     events.EventType.PLAYER_LOAD_COMPLETE,
@@ -120,10 +128,12 @@ function startReceiver() {
     events.EventType.PAUSE,
     events.EventType.BUFFERING,
     events.EventType.ENDED,
+    events.EventType.MEDIA_FINISHED,
   ].forEach((type) => playerManager.addEventListener(type, updatePlayback));
-  playerManager.addEventListener(events.EventType.ERROR, () =>
-    renderPlayback('Siaran tidak dapat diputar'),
-  );
+  playerManager.addEventListener(events.EventType.ERROR, () => {
+    renderPlayback('Siaran tidak dapat diputar');
+    screenKeeper.allowOff();
+  });
 
   // Judul baru diteruskan ke semua yang menampilkan metadata media (lihat withNowPlaying).
   const broadcastNowPlaying = () => {
