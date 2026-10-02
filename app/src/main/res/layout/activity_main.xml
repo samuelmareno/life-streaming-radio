@@ -3,7 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@android:color/black">
 
     <ImageView
         android:id="@+id/imageView"
@@ -17,6 +18,15 @@
         app:layout_constraintTop_toTopOf="parent"
         tools:src="@drawable/lifers2" />
 
+    <include
+        android:id="@+id/top_controls"
+        layout="@layout/top_controls"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline2"
         android:layout_width="wrap_content"
@@ -24,81 +34,12 @@
         android:orientation="horizontal"
         app:layout_constraintGuide_percent="0.5" />
 
-    <LinearLayout
+    <include
+        android:id="@+id/now_playing"
+        layout="@layout/now_playing_controls"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:gravity="center_horizontal"
-        android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/guideline2">
-
-        <TextView
-            android:id="@+id/tv_title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="4dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="4dp"
-            android:fontFamily="@font/archivo"
-            android:gravity="center"
-
-            android:ellipsize="marquee"
-            android:marqueeRepeatLimit="marquee_forever"
-            android:scrollHorizontally="true"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-
-            android:singleLine="true"
-            android:textColor="@android:color/white"
-            android:textSize="18sp"
-            tools:text="This is a very long song title that should definitely scroll across the screen" />
-
-        <TextView
-            android:id="@+id/tv_artist"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            android:fontFamily="@font/archivo"
-            android:textColor="@android:color/darker_gray"
-            tools:text="Name of Artists"
-            android:alpha="0.8" />
-
-        <LinearLayout
-            android:id="@+id/play_pause_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:orientation="horizontal">
-
-            <ImageView
-                android:id="@+id/exo_play"
-                android:layout_width="90dp"
-                android:layout_height="90dp"
-                android:src="@drawable/ic_play"
-                tools:ignore="ContentDescription" />
-
-            <ImageView
-                android:id="@+id/exo_pause"
-                android:layout_width="90dp"
-                android:layout_height="90dp"
-                android:src="@drawable/ic_pause"
-                tools:ignore="ContentDescription" />
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/tv_caption"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_margin="8dp"
-            android:fontFamily="@font/archivo"
-            android:gravity="center"
-            android:lineSpacingMultiplier="1.5"
-            android:marqueeRepeatLimit="marquee_forever"
-            android:text="@string/running_text"
-            android:textAllCaps="true"
-            android:textColor="@android:color/white"
-            android:textSize="20sp" />
-    </LinearLayout>
+        app:layout_constraintTop_toTopOf="@+id/guideline2" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

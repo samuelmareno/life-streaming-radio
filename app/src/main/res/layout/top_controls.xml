@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Baris atas: sleep timer (kiri) dan tombol Cast (kanan). Dipakai layout potret & landscape. -->
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="4dp">
+
+    <ImageButton
+        android:id="@+id/sleep_timer_button"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/cd_sleep_timer"
+        android:src="@drawable/ic_bedtime"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="@android:color/white" />
+
+    <TextView
+        android:id="@+id/tv_sleep_timer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/archivo"
+        android:textColor="@android:color/white"
+        android:textSize="14sp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@id/sleep_timer_button"
+        app:layout_constraintStart_toEndOf="@id/sleep_timer_button"
+        app:layout_constraintTop_toTopOf="@id/sleep_timer_button"
+        tools:text="28 mnt"
+        tools:visibility="visible" />
+
+    <!-- Hanya tampil kalau ada perangkat Cast di jaringan. -->
+    <androidx.mediarouter.app.MediaRouteButton
+        android:id="@+id/cast_button"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:contentDescription="@string/cd_cast"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:mediaRouteButtonTint="@android:color/white" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -5,4 +5,6 @@
     <color name="colorAccent">#03DAC5</color>
     <color name="colorText">#0742F1</color>
     <color name="textPopupEditTextColor">#03DAC5</color>
+    <color name="status_on_air">#4ADE80</color>
+    <color name="status_offline">#9CA3AF</color>
 </resources>

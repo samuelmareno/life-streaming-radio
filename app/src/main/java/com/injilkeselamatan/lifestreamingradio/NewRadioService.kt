@@ -8,20 +8,21 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.net.toUri
+import androidx.media3.cast.CastPlayer
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
-import androidx.media3.common.ForwardingPlayer
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
+import androidx.media3.common.DeviceInfo
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.MediaSource
-import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.CommandButton
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
@@ -33,73 +34,84 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.injilkeselamatan.lifestreamingradio.extensions.Constants
 import com.injilkeselamatan.lifestreamingradio.extensions.Constants.CHANNEL_ID
 import com.injilkeselamatan.lifestreamingradio.extensions.RadioEventListener
-import com.injilkeselamatan.lifestreamingradio.extensions.parseIcyTrack
+import com.injilkeselamatan.lifestreamingradio.extensions.fetchStationStatus
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 @OptIn(UnstableApi::class)
 class NewRadioService : MediaSessionService() {
 
     companion object {
+        private const val TAG = "NewRadioService"
         private const val CUSTOM_COMMAND_STOP = "com.church.injilkeselamatan.radiostream.STOP"
+        const val COMMAND_SET_SLEEP_TIMER = "com.injilkeselamatan.lifestreamingradio.SET_SLEEP_TIMER"
+        const val COMMAND_CANCEL_SLEEP_TIMER =
+            "com.injilkeselamatan.lifestreamingradio.CANCEL_SLEEP_TIMER"
+        const val ARG_SLEEP_TIMER_MINUTES = "minutes"
+
+        /** Kapan sleep timer berakhir, dalam [SystemClock.elapsedRealtime]. Tidak ada = mati. */
+        const val EXTRA_SLEEP_TIMER_END = "sleep_timer_end_elapsed_realtime"
+
+        private const val REMOTE_POLL_INTERVAL_MS = 15_000L
     }
 
-
-    private lateinit var exoPlayer: ExoPlayer
-
+    /** CastPlayer, atau ExoPlayer saja kalau Cast tidak tersedia di perangkat ini. */
+    private lateinit var playbackPlayer: Player
+    private lateinit var sessionPlayer: RadioSessionPlayer
     private lateinit var mediaSession: MediaSession
-    private lateinit var forwardingPlayer: ForwardingPlayer
-    private lateinit var radioEventListener: RadioEventListener
-    private lateinit var notificationProvider: DefaultMediaNotificationProvider
 
-    private lateinit var hlsSource: MediaSource
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var remoteSongPollJob: Job? = null
 
+    private val sleepTimerHandler = Handler(Looper.getMainLooper())
+    private val sleepTimerRunnable = Runnable {
+        sessionPlayer.pause()
+        clearSleepTimer()
+    }
 
     override fun onCreate() {
         super.onCreate()
 
-        // 1. Konfigurasi Audio Player
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
             .build()
-        exoPlayer = ExoPlayer.Builder(this)
-            .setAudioAttributes(audioAttributes, true)
+        val exoPlayer = ExoPlayer.Builder(this)
+            .setAudioAttributes(audioAttributes, /* handleAudioFocus= */ true)
+            // Headset dicabut: pause, jangan tiba-tiba bersuara dari speaker.
+            .setHandleAudioBecomingNoisy(true)
+            // Jaga Wi-Fi tetap hidup saat layar mati; tanpa ini stream bisa putus.
+            .setWakeMode(C.WAKE_MODE_NETWORK)
+            .setMediaSourceFactory(
+                DefaultMediaSourceFactory(this).setLoadErrorHandlingPolicy(StreamRetryPolicy())
+            )
             .build()
-        exoPlayer.setAudioAttributes(audioAttributes, true)
 
-        // 2. Konfigurasi Notifikasi
-        notificationProvider = DefaultMediaNotificationProvider.Builder(this)
+        playbackPlayer = createPlaybackPlayer(exoPlayer)
+        sessionPlayer = RadioSessionPlayer(playbackPlayer)
+
+        val notificationProvider = DefaultMediaNotificationProvider.Builder(this)
             .setChannelId(CHANNEL_ID)
             .setChannelName(R.string.channel_name)
             .setNotificationId(Constants.NOTIFICATION_ID)
             .build()
-        // Coba gunakan icon bawaan dulu untuk memastikan tidak ada masalah dengan resource icon
         notificationProvider.setSmallIcon(R.drawable.ic_radio)
-
-        // 3. Inisialisasi Player dan Session
-
-
-        // 4. Tambahkan Listener untuk Logging & Error Handling
-        radioEventListener = RadioEventListener(this, true, {
-            setupMediaAndPlay()
-        }, {
-
-        })
-        exoPlayer.addListener(radioEventListener)
-
+        setMediaNotificationProvider(notificationProvider)
         setListener(Listener())
 
-        // 5. Siapkan Media dan Mulai Bermain
-        setupMediaAndPlay()
-        setMediaNotificationProvider(notificationProvider)
-        // Metadata ICY datang sebagai satu baris "Artis - Judul" di field title.
-        // Pemecahannya dilakukan di sini saja, lalu MediaSession (dan karenanya
-        // notifikasi maupun MediaController di MainActivity) membaca hasil yang
-        // sudah rapi dari player ini. Dengan begitu tidak ada dua tempat yang
-        // menafsirkan metadata secara berbeda.
-        forwardingPlayer = object : ForwardingPlayer(exoPlayer) {
-            override fun getMediaMetadata(): MediaMetadata =
-                splitTrackMetadata(super.getMediaMetadata())
-        }
+        playbackPlayer.addListener(RadioEventListener(this, ::reconnectToLive))
+        playbackPlayer.addListener(object : Player.Listener {
+            override fun onEvents(player: Player, events: Player.Events) {
+                updateRemoteSongPolling()
+            }
+        })
+
         val stopCustomCommand = CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setSessionCommand(SessionCommand(CUSTOM_COMMAND_STOP, Bundle.EMPTY))
             .setDisplayName("Stop Radio")
@@ -117,122 +129,177 @@ class NewRadioService : MediaSessionService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        mediaSession = MediaSession.Builder(this, forwardingPlayer)
+        mediaSession = MediaSession.Builder(this, sessionPlayer)
             .setId("InjilKeselamatan_RadioSession")
             .setSessionActivity(sessionActivity)
             .setCustomLayout(listOf(stopCustomCommand))
-            .setCallback(object : MediaSession.Callback {
-
-                override fun onConnect(
-                    session: MediaSession,
-                    controller: MediaSession.ControllerInfo
-                ): MediaSession.ConnectionResult {
-                    // JANGAN membangun izin di atas super.onConnect(): sejak Media3
-                    // 1.11.0 implementasi default hanya memberi akses baca, sehingga
-                    // hasilnya kosong. Controller notifikasi jadi tidak punya command,
-                    // notifikasi media tidak terbentuk, dan foreground service tidak
-                    // pernah menyala. Berikan set command default secara eksplisit.
-                    val sessionCommands =
-                        MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
-                            .add(stopCustomCommand.sessionCommand!!)
-                            .build()
-
-                    return MediaSession.ConnectionResult
-                        .AcceptedResultBuilder(session, controller)
-                        .setAvailableSessionCommands(sessionCommands)
-                        .build()
-                }
-
-                override fun onCustomCommand(
-                    session: MediaSession,
-                    controller: MediaSession.ControllerInfo,
-                    customCommand: SessionCommand,
-                    args: Bundle
-                ): ListenableFuture<SessionResult> {
-                    return if (customCommand.customAction == CUSTOM_COMMAND_STOP) {
-                        exoPlayer.stop()
-                        mediaSession.release()
-                        pauseAllPlayersAndStopSelf()
-                        Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
-                    } else {
-                        super.onCustomCommand(session, controller, customCommand, args)
-                    }
-                }
-
-            })
+            .setCallback(SessionCallback(stopCustomCommand))
             .build()
+        // Daftarkan sesi sekarang juga, jangan tunggu controller terhubung. Kalau sistem
+        // menghidupkan ulang service setelah prosesnya dimatikan, belum ada controller, padahal
+        // tombol media (headset/Bluetooth) tetap sampai ke sesi ini. Tanpa addSession, Media3
+        // tidak menyalakan foreground service saat playback dimulai, dan Android 17 membisukan
+        // audionya ("AudioHardening background playback muted").
+        addSession(mediaSession)
 
+        // Android 17 (background audio hardening): playback hanya boleh dimulai oleh aksi user,
+        // jadi di sini item cukup dipasang tanpa prepare()/play(). Kalau sesi Cast lama masih
+        // memutar sesuatu di TV, jangan diganti.
+        if (playbackPlayer.currentTimeline.isEmpty) {
+            playbackPlayer.setMediaItem(RadioMediaItem.create(this, forCast = isCasting()))
+        }
     }
 
-    // Metode ini wajib di-override untuk menghubungkan service dengan session
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession {
-        return mediaSession
-    }
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession =
+        mediaSession
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        super.onStartCommand(intent, flags, startId)
-        return START_STICKY
+    /**
+     * CastPlayer memindahkan playback antara HP dan TV secara otomatis. Di perangkat tanpa
+     * Google Play services (misalnya Huawei), Cast tidak tersedia, tapi radio tetap harus bisa
+     * diputar secara lokal.
+     */
+    private fun createPlaybackPlayer(localPlayer: ExoPlayer): Player =
+        try {
+            CastPlayer.Builder(this)
+                .setLocalPlayer(localPlayer)
+                .setTransferCallback(RadioTransferCallback(this))
+                .build()
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Cast tidak tersedia, hanya memutar di perangkat ini", e)
+            localPlayer
+        }
+
+    private fun isCasting(): Boolean =
+        playbackPlayer.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
+
+    /** Server menutup stream (STATE_ENDED): sambung ulang selagi FGS masih aktif. */
+    private fun reconnectToLive() {
+        if (!playbackPlayer.playWhenReady) return
+        playbackPlayer.seekToDefaultPosition()
+        playbackPlayer.prepare()
     }
 
     /**
-     * Memecah metadata ICY "Artis - Judul" menjadi field yang benar.
-     * Kalau formatnya tidak sesuai dugaan, metadata dikembalikan apa adanya
-     * supaya judul mentah tetap tampil ketimbang hilang.
+     * Receiver Cast tidak meneruskan metadata ICY, jadi selama casting judul lagu diambil dari
+     * API stasiun. Polling hanya berjalan selama casting.
      */
-    private fun splitTrackMetadata(source: MediaMetadata): MediaMetadata {
-        val track = parseIcyTrack(source.title?.toString()) ?: return source
-        return source.buildUpon()
-            .setTitle(track.title)
-            .setArtist(track.artist)
-            .build()
+    private fun updateRemoteSongPolling() {
+        val casting = isCasting()
+        if (casting && remoteSongPollJob == null) {
+            remoteSongPollJob = serviceScope.launch {
+                while (isActive) {
+                    fetchStationStatus()?.let { sessionPlayer.setRemoteSongText(it.songText) }
+                    delay(REMOTE_POLL_INTERVAL_MS)
+                }
+            }
+        } else if (!casting && remoteSongPollJob != null) {
+            remoteSongPollJob?.cancel()
+            remoteSongPollJob = null
+            sessionPlayer.setRemoteSongText(null)
+        }
     }
 
-    private fun setupMediaAndPlay() {
-        // Buat metadata untuk ditampilkan di notifikasi dan UI lainnya
-        val artworkUri = "android.resource://${packageName}/${R.drawable.notif}".toUri()
-        val metadata = MediaMetadata.Builder()
-            .setArtist(Constants.SUBTITLE)
-            .setArtworkUri(artworkUri)
-            .build()
+    private fun startSleepTimer(minutes: Int) {
+        if (minutes <= 0) return clearSleepTimer()
+        val durationMs = minutes * 60_000L
+        sleepTimerHandler.removeCallbacks(sleepTimerRunnable)
+        sleepTimerHandler.postDelayed(sleepTimerRunnable, durationMs)
+        mediaSession.setSessionExtras(
+            Bundle().apply {
+                putLong(EXTRA_SLEEP_TIMER_END, SystemClock.elapsedRealtime() + durationMs)
+            }
+        )
+    }
 
-        // Buat MediaItem sebagai Live Stream untuk menyembunyikan seek bar
-        val mediaItem = MediaItem.Builder()
-            .setUri(BuildConfig.RADIO_URL)
-            .setMediaId(Constants.MEDIA_ID)
-            .setLiveConfiguration(
-                MediaItem.LiveConfiguration.Builder().build()
+    private fun clearSleepTimer() {
+        sleepTimerHandler.removeCallbacks(sleepTimerRunnable)
+        mediaSession.setSessionExtras(Bundle.EMPTY)
+    }
+
+    private inner class SessionCallback(
+        private val stopButton: CommandButton,
+    ) : MediaSession.Callback {
+
+        override fun onConnect(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo
+        ): MediaSession.ConnectionResult {
+            // JANGAN membangun izin di atas super.onConnect(): sejak Media3 1.11.0 implementasi
+            // default hanya memberi akses baca, sehingga hasilnya kosong. Controller notifikasi
+            // jadi tidak punya command, notifikasi media tidak terbentuk, dan foreground service
+            // tidak pernah menyala. Berikan set command default secara eksplisit.
+            val sessionCommands =
+                MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
+                    .add(stopButton.sessionCommand!!)
+                    .apply {
+                        // Sleep timer hanya untuk UI app ini sendiri.
+                        if (controller.packageName == packageName) {
+                            add(SessionCommand(COMMAND_SET_SLEEP_TIMER, Bundle.EMPTY))
+                            add(SessionCommand(COMMAND_CANCEL_SLEEP_TIMER, Bundle.EMPTY))
+                        }
+                    }
+                    .build()
+
+            return MediaSession.ConnectionResult
+                .AcceptedResultBuilder(session, controller)
+                .setAvailableSessionCommands(sessionCommands)
+                .build()
+        }
+
+        override fun onCustomCommand(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            customCommand: SessionCommand,
+            args: Bundle
+        ): ListenableFuture<SessionResult> {
+            when (customCommand.customAction) {
+                CUSTOM_COMMAND_STOP -> {
+                    clearSleepTimer()
+                    sessionPlayer.stop()
+                    // Playlist kosong menghapus notifikasi. Play berikutnya memulihkan item
+                    // lewat onPlaybackResumption.
+                    sessionPlayer.clearMediaItems()
+                    pauseAllPlayersAndStopSelf()
+                }
+                COMMAND_SET_SLEEP_TIMER -> startSleepTimer(args.getInt(ARG_SLEEP_TIMER_MINUTES))
+                COMMAND_CANCEL_SLEEP_TIMER -> clearSleepTimer()
+                else -> return super.onCustomCommand(session, controller, customCommand, args)
+            }
+            return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+        }
+
+        /**
+         * Play tanpa item: tombol play Bluetooth setelah proses mati, kartu media sistem, atau
+         * play setelah "Stop Radio". Menggantikan auto-play lama di onCreate().
+         */
+        override fun onPlaybackResumption(
+            mediaSession: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            isForPlayback: Boolean
+        ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> =
+            Futures.immediateFuture(
+                MediaSession.MediaItemsWithStartPosition(
+                    listOf(RadioMediaItem.create(this@NewRadioService, forCast = isCasting())),
+                    /* startIndex= */ 0,
+                    /* startPositionMs= */ C.TIME_UNSET
+                )
             )
-            .setMediaMetadata(metadata)
-            .build()
-        hlsSource = ProgressiveMediaSource.Factory(DefaultHttpDataSource.Factory())
-            .createMediaSource(mediaItem)
-
-        exoPlayer.setMediaSource(hlsSource)
-        exoPlayer.prepare()
-        exoPlayer.play()
-    }
-
-    // Dipanggil saat service akan dihancurkan
-    override fun onDestroy() {
-        // Urutan pelepasan resource penting
-        exoPlayer.removeListener(radioEventListener)
-        if (::forwardingPlayer.isInitialized) forwardingPlayer.release()
-        if (::exoPlayer.isInitialized) exoPlayer.release()
-        if (::mediaSession.isInitialized) mediaSession.release()
-
-        super.onDestroy()
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        exoPlayer.stop()
-        exoPlayer.clearMediaItems()
-        exoPlayer.release()
-        mediaSession.release()
-        NotificationManagerCompat.from(this.applicationContext).cancel(
-            Constants.NOTIFICATION_ERROR_ID
-        )
+        NotificationManagerCompat.from(applicationContext).cancel(Constants.NOTIFICATION_ERROR_ID)
+        clearSleepTimer()
         pauseAllPlayersAndStopSelf()
+    }
+
+    override fun onDestroy() {
+        sleepTimerHandler.removeCallbacks(sleepTimerRunnable)
+        serviceScope.cancel()
+        mediaSession.release()
+        // Melepas CastPlayer beserta ExoPlayer di dalamnya.
+        sessionPlayer.release()
+        super.onDestroy()
     }
 
     private inner class Listener : MediaSessionService.Listener {
@@ -278,4 +345,3 @@ class NewRadioService : MediaSessionService() {
         notificationManagerCompat.createNotificationChannel(channel)
     }
 }
-

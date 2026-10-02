@@ -4,4 +4,15 @@
     <string name="channel_description">Radio Online JKI Injil Keselamatan</string>
     <string name="channel_description_settings">This service is used to keep the radio playing in background process</string>
     <string name="running_text">berbagi kehidupan,\nbersama bertumbuh dewasa\ndalam kristus</string>
+    <string name="status_on_air">● ON AIR</string>
+    <string name="status_offline">● OFFLINE</string>
+    <string name="msg_station_offline">Siaran sedang offline. Coba lagi nanti.</string>
+    <string name="sleep_timer_title">Sleep timer</string>
+    <string name="sleep_timer_off">Matikan timer</string>
+    <string name="sleep_timer_minutes">%d menit</string>
+    <string name="sleep_timer_remaining">%d mnt</string>
+    <string name="cd_play">Putar radio</string>
+    <string name="cd_pause">Jeda radio</string>
+    <string name="cd_cast">Putar di perangkat lain</string>
+    <string name="cd_sleep_timer">Sleep timer</string>
 </resources>
