@@ -104,7 +104,8 @@ body {
   width: 2%;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(#c4b5fd, #7640f6 50%, #c4b5fd);
+  /* Satu warna, sama dengan tombol play/pause aplikasi (colorPrimary). */
+  background: var(--purple);
   transform: scaleY(0.08);
   transition: transform 80ms linear;
   will-change: transform;
